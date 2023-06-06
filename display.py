@@ -6,6 +6,8 @@ SYSTEM_COLOR = '#ffa500'
 USER_COLOR = '#ffffff'
 ERROR_COLOR = '#ff0000'
 
+DEBUG_COLOR1 = '#cccccc'
+DEBUG_COLOR2 = '#666666'
 
 def color_print(message, color, end='\n'):
     rich.get_console().print(message, style=color, end=end)

@@ -1,11 +1,11 @@
-""" The main program for the spanish tutor """
+""" The main program for the language tutor """
 import json
 import sys
 
-from display import SYSTEM_COLOR, color_print
+from display import SYSTEM_COLOR, color_print, ERROR_COLOR, DEBUG_COLOR2, DEBUG_COLOR1
 from gpt import GPT
 from repl import Repl
-from settings import get_settings, get_system_message
+from settings import get_settings, get_system_message, random_word
 
 STATUS_NEXT_QUESTION = 1
 STATUS_ANSWER = 2
@@ -25,9 +25,14 @@ class Tutor(GPT):
         # Check if there's a concept that went wrong last time. If so, include it in the prompt.
 
         result = super().chat(prompt, add_to_messages=add_to_messages)
+        if get_settings()['debug'] == '1':
+            color_print(result['content'], color=DEBUG_COLOR1)
 
-        # Modify result here...
-        reply = json.loads(result['content'])
+        try:
+            reply = json.loads(result['content'])
+        except json.decoder.JSONDecodeError:
+            color_print(f"Error decoding json: {result['content']}\n", color=ERROR_COLOR)
+            return sys.exit(1)
 
         # this is the python switch statement:
         match reply['type']:
@@ -56,6 +61,9 @@ class Tutor(GPT):
                 Generate a new sentence that includes one or more of the concepts I got wrong"""
             else:
                 prompt = "Generate a new sentence"
+            prompt += f"\ninclude the word {random_word()}"
+            if get_settings()['debug'] == '1':
+                color_print(prompt, color=DEBUG_COLOR2)  #!!
         else:
             # Ask the user for a prompt
             s = get_settings()

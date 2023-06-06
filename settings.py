@@ -1,18 +1,18 @@
+""" Settings object for the language tutor. Main purpose is to provide the system message for the AI. """
 import configparser
 import json
+import random
 
 _settings = None
-
-
 def get_settings():
     global _settings
     if _settings is None:
         config_object = configparser.ConfigParser()
         with open("settings.ini", "r") as f:
             config_object.read_file(f)
-        _settings = {t[0]:t[1] for t in config_object.items('general')}
+        _settings = {t[0] :t[1] for t in config_object.items('general')}
         language = _settings['language']
-        _settings.update({t[0]:t[1] for t in config_object.items(language)})
+        _settings.update({t[0]: t[1] for t in config_object.items(language)})
     return _settings
 
 
@@ -27,6 +27,13 @@ def get_system_message():
         return json.dumps({"type": "sentence", "response": text}, ensure_ascii=False)
 
     s = get_settings()
+    text_about_diacriticals = """Please ignore the the use of diacritical characters in my responses 
+        so for example regard o and ó as the same.
+        Don't lecture me on accents. Just regard á and a as the same.
+        Ignore accents. So regard ñ and n as the same. Also regard í and i as the same.
+ 
+        """ if s.get('ignore_diacriticals') == '1' else ''
+    analysis4 = s['analysis4'].replace('\\n', '\n')
 
     system_message = f"""You are a {s['language']} language tutor. 
 You are tutoring me in {s['language']} on {s['level']} level. 
@@ -49,10 +56,7 @@ Your answer will be like this:
 3. When I ask a question or make a remark you respond with a type "other" like this:
 {other_json(s['special_answer'])}
 
-Please ignore the the use of diacritical characters in my responses so for example regard o and ó as the same.
-Don't lecture me on accents. Just regard á and a as the same.
-Ignore accents. So regard ñ and n as the same. Also regard í and i as the same.
-
+{text_about_diacriticals}
 When I give the right answer, make your next sentence a little more complex.
 
 next
@@ -75,6 +79,18 @@ What is to travel in {s['language']}?
 next 
 {sentence_json("Our teaches speaks many languages")}
 {s['answer4']}
-{analysis_json('wrong', s['analysis4'])}
+{analysis_json('wrong', analysis4)}
 """
     return system_message
+
+
+_words = []
+def random_word():
+    global _words
+    if not _words:
+        s = get_settings()
+        # How many words we include in the list depends on the level of the user
+        max_words = {'A1': 500, 'A2': 1000, 'B1': 2000, 'B2': 4000, 'C1': 8000, 'C2': 16000}[s['level']]
+        with open("words.txt", 'r') as f:
+            _words = f.read().splitlines()[:max_words]
+    return random.choice(_words)

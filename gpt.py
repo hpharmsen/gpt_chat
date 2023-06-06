@@ -5,7 +5,7 @@ from pathlib import Path
 
 import openai
 from dotenv import load_dotenv
-from openai.error import APIConnectionError
+from openai.error import APIConnectionError, APIError
 
 from display import print_message, color_print, SYSTEM_COLOR, ERROR_COLOR
 
@@ -102,8 +102,11 @@ class GPT:
             except APIConnectionError:
                 color_print("Connecting..", color=SYSTEM_COLOR)
                 continue
+            except APIError:
+                color_print("API error, retrying", color=SYSTEM_COLOR)
+                continue
         else:
-            color_print("Connection error.", color=ERROR_COLOR)
+            color_print("OpenAI api gave is not available.", color=ERROR_COLOR)
             return None
 
         result = completion['choices'][0]['message']['content']
