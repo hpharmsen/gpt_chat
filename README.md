@@ -1,6 +1,6 @@
 # GPT chat
 
-Basic REPL to chat with the GPT models and a specific implemention that uses these models to help you learn Spanish.
+Basic REPL to chat with the GPT models and a specific implemention that uses these models to help you learn a new language.
 
 ## Installation
 
@@ -22,12 +22,17 @@ python chat.py
 ```
 Starts an interactive session. In the session you dan chat with GPT-4 or another model.
 
-## Spanish language tutor
+## Language tutor
 ```bash
-python spanish.py
+python tutor.py
 ```
-Generates sentences in English and lets you translate them into Spanish. 
+Generates sentences in English and lets you translate them. 
 The program then checks if your translation is correct and gives you feedback.
+
+## Other languages
+The current implementation is for Spanish but you can easily set a new language in settings.ini.
+
+Just make sure you include a section with the same name as the language and translate the [Spanish] section into that language.
 
 ## Special commands
 You can also use these special commands which each start with a colon:

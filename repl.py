@@ -101,9 +101,7 @@ class Repl:
                 prompt = first_prompt
                 first_prompt = None
             else:
-                prompt = input("You: ")
-            if not prompt:
-                continue
+                prompt = self.get_prompt()
             if prompt[0] == ':':
                 if not self.handle_command(prompt):
                     break
@@ -112,3 +110,10 @@ class Repl:
                 print_message(response)
                 if self.show_token_count:
                     print(f"[{response['completion']['usage']['total_tokens']}]")
+
+    def get_prompt(self):
+        """ Default implementation, can be overridden """
+        prompt = ''
+        while not prompt:
+            prompt = input("You: ")
+        return prompt

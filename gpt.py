@@ -84,20 +84,25 @@ class GPT:
         self.messages += [{'role': 'user', 'content': prompt}]
         messages = [{'role': 'system', 'content': self.system}] + \
                    [{'role': m['role'], 'content': m['content']} for m in self.messages[-self.message_memory:]]
-        try:
-            completion = openai.ChatCompletion.create(
-                model=self.model,
-                messages=messages,
-                temperature=self.temperature,
-                max_tokens=self.max_tokens,
-                n=self.n,
-                top_p=self.top_p,
-                frequency_penalty=self.frequency_penalty,
-                presence_penalty=self.presence_penalty,
-                stop=self.stop
+        for _ in range(3):
+            try:
+                completion = openai.ChatCompletion.create(
+                    model=self.model,
+                    messages=messages,
+                    temperature=self.temperature,
+                    max_tokens=self.max_tokens,
+                    n=self.n,
+                    top_p=self.top_p,
+                    frequency_penalty=self.frequency_penalty,
+                    presence_penalty=self.presence_penalty,
+                    stop=self.stop
 
-            )
-        except APIConnectionError:
+                )
+                break
+            except APIConnectionError:
+                color_print("Connecting..", color=SYSTEM_COLOR)
+                continue
+        else:
             color_print("Connection error.", color=ERROR_COLOR)
             return None
 
