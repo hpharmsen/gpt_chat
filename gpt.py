@@ -1,13 +1,15 @@
 """ Handles the GPT API and the conversation state. """
+import json
 import os
 import re
 from pathlib import Path
 
 import openai
 from dotenv import load_dotenv
-from openai.error import APIConnectionError, APIError
+from openai.error import APIConnectionError, APIError, RateLimitError
 
 from display import print_message, color_print, SYSTEM_COLOR, ERROR_COLOR
+from settings import get_settings
 
 BASE_SYSTEM = "You are ChatGPT, a large language model trained by OpenAI."
 
@@ -80,10 +82,10 @@ class GPT:
 
     def chat(self, prompt, add_to_messages=True):
         if self.messages and not self.name:
-            self.name = re.sub(r'\W+', '', self.messages[0]['content']).replace(' ', '_')[:20]
-        self.messages += [{'role': 'user', 'content': prompt}]
+            self.name = re.sub(r'\W+', '', self.messages[0].text).replace(' ', '_')[:20]
+        self.messages += [Message('user', prompt)]
         messages = [{'role': 'system', 'content': self.system}] + \
-                   [{'role': m['role'], 'content': m['content']} for m in self.messages[-self.message_memory:]]
+                   [{'role': m.role, 'content': m.text} for m in self.messages[-self.message_memory:]]
         for _ in range(3):
             try:
                 completion = openai.ChatCompletion.create(
@@ -105,15 +107,21 @@ class GPT:
             except APIError:
                 color_print("API error, retrying", color=SYSTEM_COLOR)
                 continue
+            except RateLimitError:
+                color_print(f"{get_settings()['model']} is overloaded, retrying", color=SYSTEM_COLOR)
+            continue
         else:
             color_print("OpenAI api gave is not available.", color=ERROR_COLOR)
             return None
 
-        result = completion['choices'][0]['message']['content']
-        message = {'role': 'assistant', 'content': result, 'completion': completion}
+        message = Message('assistant', completion)
         if add_to_messages:
             self.messages += [message]
         return message
+
+    def after_response(self, message):
+        # content is in message['completion']['choices'][0]['message']['content']
+        return  # Can be overridden
 
     def save(self, name=None):
         if name:
@@ -122,7 +130,7 @@ class GPT:
         with open((self.save_dir / self.name).with_suffix('.txt'), "w") as f:
             f.write(f"system: {self.system}\n")
             for message in self.messages:
-                f.write(f"{message['role']}: {message['content']}\n")
+                f.write(f"{message.role}: {message.text}\n")
 
     def load(self, name):
         def save_message(msg):
@@ -140,23 +148,23 @@ class GPT:
             color_print(f"New conversation:  {filename}", color=SYSTEM_COLOR)
             return
         with open(filename, "r") as f:
-            message = {}
+            message = Message()
             for line in f.readlines():
                 line = line[:-1]
                 try:
                     role, content = line.split(': ', 1)
                 except ValueError:
-                    message['content'] += '\n' + line
+                    message.text += '\n' + line
                     continue
                 if role in ['system', 'user', 'assistant']:
                     if message:
                         save_message(message)
                     message = {'role': role, 'content': content}
                 else:
-                    message['content'] += '\n' + line
+                    message.text += '\n' + line
             if message:
                 save_message(message)
-        print_message({'role': 'system', 'content': self.system})
+        print_message(Message('system', self.system))
         for message in self.messages:
             print_message(message)
 
@@ -164,3 +172,24 @@ class GPT:
         with open(filename, "r") as f:
             prompt = f.read()
         self.chat(prompt)
+
+
+class Message:
+    """ Handles the completion as returned by GPT """
+    def __init__(self, role=None, text_or_completion=None):
+        self.role = role
+        if isinstance(text_or_completion, str):
+            self.text = text_or_completion
+            self.raw_completion = None
+        else:
+            self.raw_completion = text_or_completion
+            self.text = text_or_completion['choices'][0]['message']['content'] if text_or_completion else ''
+
+    def content(self):
+        try:
+            return json.loads(self.raw_completion['choices'][0]['message']['content'])
+        except json.decoder.JSONDecodeError:
+            return {'type': 'other', 'response': self.raw_completion['choices'][0]['message']['content']}
+
+    def tokens(self):
+        return self.raw_completion['usage']['total_tokens']

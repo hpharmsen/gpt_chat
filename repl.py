@@ -106,10 +106,11 @@ class Repl:
                 if not self.handle_command(prompt):
                     break
             else:
-                response = self.gpt.chat(prompt)
-                print_message(response)
+                message = self.gpt.chat(prompt)
+                print_message(message)
+                self.gpt.after_response(message)
                 if self.show_token_count:
-                    print(f"[{response['completion']['usage']['total_tokens']}]")
+                    print(f"[{message.tokens()}]")
 
     def get_prompt(self):
         """ Default implementation, can be overridden """

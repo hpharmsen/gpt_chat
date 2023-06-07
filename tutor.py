@@ -1,11 +1,11 @@
 """ The main program for the language tutor """
-import json
 import sys
 
-from display import SYSTEM_COLOR, color_print, ERROR_COLOR, DEBUG_COLOR2, DEBUG_COLOR1
+from display import SYSTEM_COLOR, color_print, DEBUG_COLOR2, DEBUG_COLOR1
 from gpt import GPT
 from repl import Repl
 from settings import get_settings, get_system_message, random_word
+from synthesize import say
 
 STATUS_NEXT_QUESTION = 1
 STATUS_ANSWER = 2
@@ -18,37 +18,8 @@ class Tutor(GPT):
         self.hard_concepts = []
         self.message_memory = 4
         self.last_question = ''
+        self.last_answer = ''
         self.status = STATUS_NEXT_QUESTION
-
-    def chat(self, prompt, add_to_messages=True):
-        # Modify prompt here...
-        # Check if there's a concept that went wrong last time. If so, include it in the prompt.
-
-        result = super().chat(prompt, add_to_messages=add_to_messages)
-        if get_settings()['debug'] == '1':
-            color_print(result['content'], color=DEBUG_COLOR1)
-
-        try:
-            reply = json.loads(result['content'])
-        except json.decoder.JSONDecodeError:
-            color_print(f"Error decoding json: {result['content']}\n", color=ERROR_COLOR)
-            return sys.exit(1)
-
-        # this is the python switch statement:
-        match reply['type']:
-            case 'sentence':
-                self.status = STATUS_ANSWER
-                self.last_question = reply['response']
-            case 'other':
-                self.status = STATUS_ANSWER
-            case 'analysis':
-                if reply['result'] == 'wrong':
-                    hard_concept = {'question': self.last_question, 'answer': prompt, 'analysis': reply['response']}
-                    self.hard_concepts.append(hard_concept)
-                self.status = STATUS_NEXT_QUESTION
-        modified_result = result.copy()
-        modified_result['content'] = reply['response']
-        return modified_result
 
     def get_prompt(self):
         if self.status == STATUS_NEXT_QUESTION:
@@ -63,7 +34,7 @@ class Tutor(GPT):
                 prompt = "Generate a new sentence"
             prompt += f"\ninclude the word {random_word()}"
             if get_settings()['debug'] == '1':
-                color_print(prompt, color=DEBUG_COLOR2)  #!!
+                color_print(prompt, color=DEBUG_COLOR2)
         else:
             # Ask the user for a prompt
             s = get_settings()
@@ -72,10 +43,42 @@ class Tutor(GPT):
                 prompt = input(f"{s['language']}: ")
         return prompt
 
+    def chat(self, prompt, add_to_messages=True):
+        # Modify prompt here...
+        # Check if there's a concept that went wrong last time. If so, include it in the prompt.
+
+        message = super().chat(prompt, add_to_messages=add_to_messages)
+
+        if get_settings()['debug'] == '1':
+            color_print(message.text, color=DEBUG_COLOR1)
+
+        reply = message.content()
+        match reply['type']:
+            case 'sentence':
+                self.status = STATUS_ANSWER
+                self.last_question = reply['response']
+            case 'other':
+                self.status = STATUS_ANSWER
+            case 'analysis':
+                self.last_answer = prompt  # Save last answer given by the user in order to play audio if it is correct
+                if reply['verdict'] == 'wrong':
+                    hard_concept = {'question': self.last_question, 'answer': prompt, 'analysis': reply['response']}
+                    self.hard_concepts.append(hard_concept)
+                self.status = STATUS_NEXT_QUESTION
+        message.text = reply['response']
+        return message
+
+    def after_response(self, message):
+        reply = message.content()
+        if reply['type'] == 'analysis' and get_settings().get('play_audio') == '1':
+            sentence = self.last_answer if reply['verdict'] == 'right' else reply['right_answer']
+            say(sentence, language=get_settings()['language'])
+
 
 if __name__ == "__main__":
     s = get_settings()
-    color_print(f"Hello, I am your {s['language']} tutor on {s['level']} level. I will help you learn {s['language']}.\n" +
+    color_print(f"Hello, I am your {s['language']} tutor on {s['level']} level. " +
+                f"I will help you learn {s['language']}.\n" +
                 f"I will give you sentences in English and you will have to translate them into {s['language']}.\n" +
                 "Here's your first sentence:\n", color=SYSTEM_COLOR)
     gpt = Tutor()
@@ -87,5 +90,5 @@ if __name__ == "__main__":
 
     # Start the interactive prompt
     repl = Repl(gpt)
-    repl.get_prompt = gpt.get_prompt # partial(gpt.get_prompt, repl=repl)
+    repl.get_prompt = gpt.get_prompt  # partial(gpt.get_prompt, repl=repl)
     repl.run()

@@ -10,15 +10,18 @@ def get_settings():
         config_object = configparser.ConfigParser()
         with open("settings.ini", "r") as f:
             config_object.read_file(f)
-        _settings = {t[0] :t[1] for t in config_object.items('general')}
+        _settings = {t[0]: t[1] for t in config_object.items('general')}
         language = _settings['language']
         _settings.update({t[0]: t[1] for t in config_object.items(language)})
     return _settings
 
 
 def get_system_message():
-    def analysis_json(result, analysis):
-        return json.dumps({"type": "analysis", "result": result, "response": analysis}, ensure_ascii=False)
+    def analysis_json(verdict, analysis, right_anwer=""):
+        data = {"type": "analysis", "verdict": verdict, "response": analysis}
+        if right_anwer:
+            data['right_answer'] = right_anwer
+        return json.dumps(data, ensure_ascii=False)
 
     def other_json(text):
         return json.dumps({"type": "other", "response": text}, ensure_ascii=False)
@@ -49,9 +52,9 @@ next
 
 2. When I give a translation in {s['language']} you analyse my answer and respond with how I did and 
 you explain what I did wrong and how to prevent that in the future. In this case the type is "analysis" 
-and the result is "right" or "wrong" depending on whether I translated the sentence well or not. 
+and the verdict is "right" or "wrong" depending on whether I translated the sentence well or not. 
 Your answer will be like this:
-{analysis_json('wrong', s['analysis1'])}
+{analysis_json('wrong', s['analysis1'], s['right_answer1'])}
 
 3. When I ask a question or make a remark you respond with a type "other" like this:
 {other_json(s['special_answer'])}
@@ -62,7 +65,7 @@ When I give the right answer, make your next sentence a little more complex.
 next
 {sentence_json("She is reading a book at the library")}
 {s['answer1']}
-{analysis_json('wrong', s['analysis1'])}
+{analysis_json('wrong', s['analysis1'], s['right_answer1'])}
 
 next
 {sentence_json("The movie we watched last night was very interesting")} 
@@ -74,12 +77,12 @@ next
 What is to travel in {s['language']}?
 {other_json(s['special_answer'])}
 {s['answer3']}
-{analysis_json('wrong', s['analysis3'])}
+{analysis_json('wrong', s['analysis3'], s['right_answer3'])}
 
 next 
 {sentence_json("Our teaches speaks many languages")}
 {s['answer4']}
-{analysis_json('wrong', analysis4)}
+{analysis_json('wrong', analysis4, s['right_answer4'])}
 """
     return system_message
 
