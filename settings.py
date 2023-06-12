@@ -3,6 +3,8 @@ import configparser
 import json
 import random
 
+WORDS_PER_LEVEL = {'A1': 500, 'A2': 1000, 'B1': 2000, 'B2': 4000, 'C1': 8000, 'C2': 16000}
+
 _settings = None
 def get_settings():
     global _settings
@@ -16,7 +18,7 @@ def get_settings():
     return _settings
 
 
-def get_system_message():
+def system_message():
     def analysis_json(verdict, analysis, right_anwer=""):
         data = {"type": "analysis", "verdict": verdict, "response": analysis}
         if right_anwer:
@@ -93,7 +95,7 @@ def random_word():
     if not _words:
         s = get_settings()
         # How many words we include in the list depends on the level of the user
-        max_words = {'A1': 500, 'A2': 1000, 'B1': 2000, 'B2': 4000, 'C1': 8000, 'C2': 16000}[s['level']]
+        max_words = WORDS_PER_LEVEL[s['level']]
         with open("words.txt", 'r') as f:
             _words = f.read().splitlines()[:max_words]
     return random.choice(_words)

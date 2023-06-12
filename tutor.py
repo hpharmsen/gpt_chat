@@ -1,10 +1,12 @@
 """ The main program for the language tutor """
 import sys
 
+import settings
+from commands import CommandHandler
 from display import SYSTEM_COLOR, color_print, DEBUG_COLOR2, DEBUG_COLOR1
 from gpt import GPT
 from repl import Repl
-from settings import get_settings, get_system_message, random_word
+from settings import get_settings, random_word, WORDS_PER_LEVEL
 from synthesize import say
 
 STATUS_NEXT_QUESTION = 1
@@ -14,7 +16,7 @@ STATUS_ANSWER = 2
 class Tutor(GPT):
     def __init__(self):
         super().__init__()
-        self.system = get_system_message()
+        self.system = settings.system_message
         self.hard_concepts = []
         self.message_memory = 4
         self.last_question = ''
@@ -49,6 +51,7 @@ class Tutor(GPT):
 
         message = super().chat(prompt, add_to_messages=add_to_messages)
 
+        s = get_settings()
         if get_settings()['debug'] == '1':
             color_print(message.text, color=DEBUG_COLOR1)
 
@@ -74,6 +77,22 @@ class Tutor(GPT):
             sentence = self.last_answer if reply['verdict'] == 'right' else reply['right_answer']
             say(sentence, language=get_settings()['language'])
 
+def handle_level(level: str):
+    level = level.upper()
+    accepted_levels = WORDS_PER_LEVEL.keys()
+    if level not in accepted_levels:
+        color_print(f"Error: level must be one of {', '.join(accepted_levels)}", color=SYSTEM_COLOR)
+    else:
+        s = get_settings()
+        s['level'] = level
+        color_print(f'language level set to {level}', color=SYSTEM_COLOR)
+    return True
+
+def handle_debug(debug: str):
+    s = get_settings()
+    s['debug'] = debug
+    color_print(f'debug set to {debug}', color=SYSTEM_COLOR)
+    return True
 
 if __name__ == "__main__":
     s = get_settings()
@@ -88,7 +107,12 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         gpt.load(sys.argv[1])
 
+    # Add a command handler that handles special commands like model parameters and system settings
+    command_handler = CommandHandler(gpt)
+    command_handler.add_command('level', handle_level, ":level - Set the language level (A1..C2)")
+    command_handler.add_command('debug', handle_debug, ":debug - set to 1 displays all prompts and model replies")
+
     # Start the interactive prompt
-    repl = Repl(gpt)
+    repl = Repl(gpt, command_handler.handle_command)
     repl.get_prompt = gpt.get_prompt  # partial(gpt.get_prompt, repl=repl)
     repl.run()

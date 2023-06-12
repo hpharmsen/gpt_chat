@@ -21,7 +21,7 @@ class GPT:
         openai.api_key = os.getenv("OPENAI_API_KEY")
         openai.organization = os.getenv("OPENAI_ORGANIZATION")
 
-        self.system = BASE_SYSTEM
+        self.system = lambda: BASE_SYSTEM
 
         # Model parameters
         self.model = "gpt-4"  # "gpt-3.5-turbo"
@@ -84,7 +84,7 @@ class GPT:
         if self.messages and not self.name:
             self.name = re.sub(r'\W+', '', self.messages[0].text).replace(' ', '_')[:20]
         self.messages += [Message('user', prompt)]
-        messages = [{'role': 'system', 'content': self.system}] + \
+        messages = [{'role': 'system', 'content': self.system()}] + \
                    [{'role': m.role, 'content': m.text} for m in self.messages[-self.message_memory:]]
         for _ in range(3):
             try:
@@ -128,14 +128,14 @@ class GPT:
             self.name = name
 
         with open((self.save_dir / self.name).with_suffix('.txt'), "w") as f:
-            f.write(f"system: {self.system}\n")
+            f.write(f"system: {self.system()}\n")
             for message in self.messages:
                 f.write(f"{message.role}: {message.text}\n")
 
     def load(self, name):
         def save_message(msg):
             if msg['role'] == 'system':
-                self.system = msg['content']
+                self.system = lambda: msg['content']
             else:
                 self.messages += [msg]
 
@@ -164,7 +164,7 @@ class GPT:
                     message.text += '\n' + line
             if message:
                 save_message(message)
-        print_message(Message('system', self.system))
+        print_message(Message('system', self.system()))
         for message in self.messages:
             print_message(message)
 
